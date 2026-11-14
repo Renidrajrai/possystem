@@ -48,17 +48,42 @@ const NAV = [
 
 function loginView() {
   $('#top').hidden = true;
-  $('#main').innerHTML = `<div class="card login"><h3>Café POS login</h3>
-    <div class="row"><input id="em" placeholder="Email" type="email"></div>
-    <div class="row"><input id="pw" placeholder="Password" type="password"></div>
-    <button id="go" style="width:100%">Login</button></div>`;
-  $('#go').onclick = guard(async () => {
-    const r = await api('/auth/login', { method: 'POST', body: { email: $('#em').value.trim(), password: $('#pw').value } });
-    token = r.token; if (!token) throw new Error('Login response had no token');
-    localStorage.setItem('tok', token);
-    start();
-  });
-  $('#pw').onkeydown = e => e.key === 'Enter' && $('#go').click();
+  $('#main').innerHTML = `<form class="card login" id="loginForm">
+    <h2>☕ Café POS</h2>
+    <p class="muted">Sign in to open the counter</p>
+    <label>Email
+      <input id="em" name="email" type="email" autocomplete="username" required autofocus placeholder="you@cafe.local">
+    </label>
+    <label>Password
+      <span class="pw"><input id="pw" name="password" type="password" autocomplete="current-password" required placeholder="Your password"><button type="button" class="alt" id="togglePw">Show</button></span>
+    </label>
+    <p id="loginErr" class="err" hidden></p>
+    <button id="go" class="ok" type="submit">Sign in</button>
+  </form>`;
+  const showErr = m => { const el = $('#loginErr'); el.textContent = m; el.hidden = false; };
+  $('#togglePw').onclick = () => {
+    const p = $('#pw'), show = p.type === 'password';
+    p.type = show ? 'text' : 'password';
+    $('#togglePw').textContent = show ? 'Hide' : 'Show';
+    p.focus();
+  };
+  $('#loginForm').onsubmit = async e => {
+    e.preventDefault();
+    $('#loginErr').hidden = true;
+    const email = $('#em').value.trim(), password = $('#pw').value.trim();
+    if (!email || !password) return showErr('Enter your email and password.');
+    const btn = $('#go');
+    btn.disabled = true; btn.textContent = 'Signing in…';
+    try {
+      const r = await api('/auth/login', { method: 'POST', body: { email, password } });
+      if (!r.token) throw new Error('Login response had no token');
+      token = r.token; localStorage.setItem('tok', token);
+      await start();
+    } catch (ex) {
+      showErr(ex.status === 401 ? 'Wrong email or password.' : ex.message || 'Could not sign in.');
+      btn.disabled = false; btn.textContent = 'Sign in';
+    }
+  };
 }
 
 function logout() {
