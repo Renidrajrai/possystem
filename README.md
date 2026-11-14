@@ -1,6 +1,7 @@
-# Café POS – Backend
+# Café POS – API + Web UI
 
-Node.js + Express + TypeScript API on PostgreSQL (Prisma). It implements the backend of the
+Node.js + Express + TypeScript API on PostgreSQL (Prisma), plus a dependency-free plain-JS POS screen
+served from `public/`. It implements the backend of the
 *Café POS System – Product & Technical Blueprint*: staff/roles, menu with variants & modifiers, tables,
 orders, kitchen tickets (KOT), billing, payments, refunds, shifts/cash drawer, inventory & recipes,
 suppliers/purchasing, reports, audit log, live kitchen updates (Socket.IO) and **phone-based membership**.
@@ -14,7 +15,7 @@ docker compose up -d            # PostgreSQL 16 (or point DATABASE_URL at your o
 npx prisma migrate deploy       # applies prisma/migrations (creates all 39 tables)
 npx prisma generate
 npm run db:seed                 # roles, permissions, payment methods, stations, settings, owner account
-npm run dev                     # http://localhost:4000/api/v1   (health: /health)
+npm run dev                     # API + UI: http://localhost:4000/   (health: /health)
 ```
 
 Set `SEED_DEMO=true` before seeding to also get demo staff (`manager@`, `cashier@`, `kitchen@cafe.local`,
@@ -29,8 +30,28 @@ Generate a secret: `node -e "console.log(require('crypto').randomBytes(48).toStr
 | `npm run build` / `npm start` | Compile to `dist/` and run it |
 | `npm run typecheck` | TypeScript check |
 | `npm test` | 31 unit tests (pricing, totals/tax maths, phone/membership, kitchen state rules) |
-| `npm run test:e2e` | 92-check end-to-end run against a live API + DB (see Testing) |
+| `npm run test:e2e` | 94-check end-to-end run against a live API + DB (see Testing) |
 | `npm run prisma:studio` | Browse the database |
+
+## Web UI
+
+`public/` holds a plain HTML/CSS/JS client (`index.html`, `app.js`, `style.css`) served by Express on the
+same origin as the API — no build step, no dev proxy, no CORS setup. Open `http://localhost:<PORT>/` after
+`npm run dev` (or `npm run build && npm start`) and log in with any seeded account.
+
+| Screen | Needs | What it does |
+|---|---|---|
+| New order | `order.create` + `menu.view` | menu with variants/modifiers (min/max/required enforced), dine-in/takeaway/delivery, member by phone, send to kitchen |
+| Orders | `order.view` | active tabs, add items, checkout, discount (per permission), payment, complete, cancel |
+| Kitchen | `kitchen.view` | ticket board, valid next statuses, cancel with reason, 8 s auto-refresh |
+| Bills | `bill.checkout` or `report.view` | bill search, receipt, void (unpaid), refunds |
+| Shift | `shift.manage` | open/close own drawer, expected vs actual cash, cash totals |
+| Customers | `customer.view` | search, profile, spend stats and recent orders |
+
+Navigation is built from the permissions returned by `GET /auth/me`; every action is still authorised by
+the API (hiding a button is not authorization). The UI keeps payments safe to retry with an
+`Idempotency-Key` per attempt. `public/` is **not** copied into `dist/`, so run `npm start` from the repo
+root; if you package only `dist/`, copy `public/` next to it.
 
 ## Membership by phone number
 
@@ -175,6 +196,7 @@ Until compliance is confirmed, use `/bills/:id/receipt` as an internal receipt, 
 
 ```
 prisma/            schema.prisma, migrations/, seed.ts
+public/            plain-JS POS UI (index.html, app.js, style.css) served by Express
 src/config/        env validation, Prisma client, permission catalogue
 src/middleware/    auth + permission guards, zod validation, error handler
 src/modules/       auth users audit customers settings menu tables orders kitchen billing shifts reports inventory
