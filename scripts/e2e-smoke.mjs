@@ -1,4 +1,4 @@
-// End-to-end smoke test of the real API (92 checks). Needs: PostgreSQL migrated + seeded with SEED_DEMO=true,
+// End-to-end smoke test of the real API (94 checks). Needs: PostgreSQL migrated + seeded with SEED_DEMO=true,
 // and the API running on PORT=4100 (see README > Testing). Usage: node scripts/e2e-smoke.mjs
 // Run it against a THROWAWAY database: it creates orders, payments and shifts.
 const BASE = 'http://localhost:4100/api/v1';
@@ -218,6 +218,14 @@ ok(rcv.status === 200 && rcv.body.status === 'RECEIVED', 'purchase order receive
 ok((await call('GET', '/inventory/items', { token: manager })).body.find((i) => i.name === 'Coffee beans').currentQuantity === '5982', 'beans stock = 4982 + 1000');
 ok((await call('POST', `/inventory/items/${beans.id}/adjust`, { token: manager, body: { type: 'WASTAGE', quantity: 50, reason: 'spilled' } })).status === 201, 'wastage recorded');
 ok((await call('GET', '/inventory/reconcile', { token: manager })).body.ok === true, 'ledger still reconciles after purchase + wastage');
+
+console.log('\n== Static UI');
+const ui = await fetch('http://localhost:4100/');
+const uiHtml = await ui.text();
+ok(ui.status === 200 && uiHtml.includes('Café POS') && uiHtml.includes('app.js'), 'GET / serves the POS page');
+const missing = await fetch(BASE + '/does-not-exist');
+const missingJson = await missing.json().catch(() => null);
+ok(missing.status === 404 && missingJson?.error?.code === 'NOT_FOUND', 'unknown API route still returns the JSON 404');
 
 console.log(`\n${failed === 0 ? '✅' : '❌'} ${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

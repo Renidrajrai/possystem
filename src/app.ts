@@ -1,3 +1,4 @@
+import path from 'node:path';
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
@@ -71,6 +72,9 @@ export function createApp() {
   api.use('/inventory', inventoryRouter);
   api.use(billingRouter); // /orders/:id/checkout, /bills/*, /payments/:id/refunds (per-route auth)
   app.use('/api/v1', api);
+
+  // Plain-JS POS UI. Resolved from the repo root so `npm start` (dist/server.js) needs no copy step.
+  app.use(express.static(path.join(process.cwd(), 'public')));
 
   app.use(notFoundHandler);
   app.use(errorHandler);
